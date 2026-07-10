@@ -5,6 +5,7 @@
 Input/
 .env
 .env.*
+!.env.example
 *.credentials
 secrets*
 
