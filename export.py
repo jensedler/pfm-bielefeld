@@ -147,6 +147,48 @@ def monatsende(jahr: int, monat: int) -> date:
     return date(jahr, monat, calendar.monthrange(jahr, monat)[1])
 
 
+CHUNK_TAGE = 10
+
+
+def hole_werte(token: str, location_id: str, start: date, ende: date,
+               step: str, kontext: str) -> list[str]:
+    """Ruft einen Zeitraum ab und liefert die gefilterten Datenzeilen.
+
+    Zwei Eigenheiten der API werden abgefangen: An exakten Zeitraumgrenzen
+    unterschlägt sie Stunden des Randtages (daher Abruf mit einem Tag
+    Überlappung beidseitig), und große Antworten werden stillschweigend
+    mitten im Datenstrom abgeschnitten (daher Prüfung, dass der letzte
+    angefragte Tag enthalten ist, sonst Wiederholung)."""
+    for versuch in range(RETRIES):
+        daten = api_get(
+            f"locations/{location_id}/areas/visitors", token,
+            start=(start - timedelta(days=1)).isoformat(),
+            end=(ende + timedelta(days=1)).isoformat(),
+            step=step, format="csv",
+        )
+        text = pruefe_csv(daten, kontext)
+        zeilen = [z for z in text.splitlines()[1:]
+                  if start.isoformat() <= z.split(";")[3][:10] <= ende.isoformat()]
+        if any(z.split(";")[3][:10] == ende.isoformat() for z in zeilen):
+            return zeilen
+        print(f"  Antwort für {kontext} unvollständig (endet vor {ende}), "
+              "neuer Versuch …")
+        time.sleep(5 * (versuch + 1))
+    raise SystemExit(f"Abbruch: {kontext} auch nach {RETRIES} Versuchen unvollständig")
+
+
+def hole_werte_chunked(token: str, location_id: str, start: date, ende: date,
+                       step: str, kontext: str) -> list[str]:
+    zeilen: list[str] = []
+    chunk_start = start
+    while chunk_start <= ende:
+        chunk_ende = min(chunk_start + timedelta(days=CHUNK_TAGE - 1), ende)
+        zeilen += hole_werte(token, location_id, chunk_start, chunk_ende,
+                             step, f"{kontext} ({chunk_start} bis {chunk_ende})")
+        chunk_start = chunk_ende + timedelta(days=1)
+    return zeilen
+
+
 def export_tageswerte(token: str, location_id: str, bis: date) -> None:
     """Tageswerte monatsweise abrufen (der Gesamtzeitraum in einem Request
     überfordert die API) und zu einer Gesamtdatei zusammensetzen."""
@@ -160,12 +202,9 @@ def export_tageswerte(token: str, location_id: str, bis: date) -> None:
         datei = cache_dir / f"tageswerte_{jahr}-{monat:02d}.csv"
         if not (ende == monatsende(jahr, monat) and monat_vollstaendig(datei, ende)):
             print(f"Exportiere Tageswerte {jahr}-{monat:02d} ({start} bis {ende}) …")
-            daten = api_get(
-                f"locations/{location_id}/areas/visitors", token,
-                start=start.isoformat(), end=ende.isoformat(),
-                step="day", format="csv",
-            )
-            datei.write_text(pruefe_csv(daten, f"Tageswerten {jahr}-{monat:02d}"))
+            zeilen = hole_werte(token, location_id, start, ende, "day",
+                                f"Tageswerte {jahr}-{monat:02d}")
+            datei.write_text(CSV_HEADER + "\n" + "\n".join(zeilen) + "\n")
         teile.append(datei)
         jahr, monat = (jahr + 1, 1) if monat == 12 else (jahr, monat + 1)
 
@@ -198,18 +237,8 @@ def export_stundenwerte(token: str, location_id: str, bis: date) -> None:
             print(f"Stundenwerte {jahr}-{monat:02d}: vollständig, übersprungen.")
         else:
             print(f"Exportiere Stundenwerte {jahr}-{monat:02d} ({start} bis {ende}) …")
-            # Mit einem Tag Überlappung an beiden Rändern abrufen: startet oder
-            # endet der Zeitraum exakt an der Bereichsgrenze, unterschlägt die
-            # API die ersten bzw. letzten Stunden des Randtages.
-            daten = api_get(
-                f"locations/{location_id}/areas/visitors", token,
-                start=(start - timedelta(days=1)).isoformat(),
-                end=(ende + timedelta(days=1)).isoformat(),
-                step="hour", format="csv",
-            )
-            text = pruefe_csv(daten, f"Stundenwerten {jahr}-{monat:02d}")
-            zeilen = [z for z in text.splitlines()[1:]
-                      if start.isoformat() <= z.split(";")[3][:10] <= ende.isoformat()]
+            zeilen = hole_werte_chunked(token, location_id, start, ende, "hour",
+                                        f"Stundenwerte {jahr}-{monat:02d}")
             datei.write_text(CSV_HEADER + "\n" + "\n".join(zeilen) + "\n")
             print(f"  {len(zeilen)} Datenzeilen geschrieben.")
         jahr, monat = (jahr + 1, 1) if monat == 12 else (jahr, monat + 1)
