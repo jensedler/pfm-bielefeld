@@ -143,20 +143,39 @@ def export_stationen(token: str, location_id: str) -> None:
     print(f"  {len(features)} Erfassungsbereiche geschrieben.")
 
 
-def export_tageswerte(token: str, location_id: str, bis: date) -> None:
-    print(f"Exportiere Tageswerte {MESSBEGINN} bis {bis} …")
-    daten = api_get(
-        f"locations/{location_id}/areas/visitors", token,
-        start=MESSBEGINN.isoformat(), end=bis.isoformat(),
-        step="day", format="csv",
-    )
-    text = pruefe_csv(daten, "Tageswerten")
-    (DATA_DIR / "tageswerte.csv").write_text(text)
-    print(f"  {text.count(chr(10))} Zeilen geschrieben.")
-
-
 def monatsende(jahr: int, monat: int) -> date:
     return date(jahr, monat, calendar.monthrange(jahr, monat)[1])
+
+
+def export_tageswerte(token: str, location_id: str, bis: date) -> None:
+    """Tageswerte monatsweise abrufen (der Gesamtzeitraum in einem Request
+    überfordert die API) und zu einer Gesamtdatei zusammensetzen."""
+    cache_dir = DATA_DIR / "tageswerte_monate"
+    cache_dir.mkdir(exist_ok=True)
+    teile = []
+    jahr, monat = MESSBEGINN.year, MESSBEGINN.month
+    while (jahr, monat) <= (bis.year, bis.month):
+        start = max(date(jahr, monat, 1), MESSBEGINN)
+        ende = min(monatsende(jahr, monat), bis)
+        datei = cache_dir / f"tageswerte_{jahr}-{monat:02d}.csv"
+        if not (ende == monatsende(jahr, monat) and monat_vollstaendig(datei, ende)):
+            print(f"Exportiere Tageswerte {jahr}-{monat:02d} ({start} bis {ende}) …")
+            daten = api_get(
+                f"locations/{location_id}/areas/visitors", token,
+                start=start.isoformat(), end=ende.isoformat(),
+                step="day", format="csv",
+            )
+            datei.write_text(pruefe_csv(daten, f"Tageswerten {jahr}-{monat:02d}"))
+        teile.append(datei)
+        jahr, monat = (jahr + 1, 1) if monat == 12 else (jahr, monat + 1)
+
+    with open(DATA_DIR / "tageswerte.csv", "w") as gesamt:
+        gesamt.write(CSV_HEADER + "\n")
+        for datei in teile:
+            inhalt = datei.read_text().splitlines()[1:]
+            gesamt.write("\n".join(inhalt) + ("\n" if inhalt else ""))
+    zeilen = sum(1 for _ in open(DATA_DIR / "tageswerte.csv")) - 1
+    print(f"  tageswerte.csv mit {zeilen} Datenzeilen geschrieben.")
 
 
 def monat_vollstaendig(datei: Path, ende: date) -> bool:
@@ -179,14 +198,20 @@ def export_stundenwerte(token: str, location_id: str, bis: date) -> None:
             print(f"Stundenwerte {jahr}-{monat:02d}: vollständig, übersprungen.")
         else:
             print(f"Exportiere Stundenwerte {jahr}-{monat:02d} ({start} bis {ende}) …")
+            # Mit einem Tag Überlappung an beiden Rändern abrufen: startet oder
+            # endet der Zeitraum exakt an der Bereichsgrenze, unterschlägt die
+            # API die ersten bzw. letzten Stunden des Randtages.
             daten = api_get(
                 f"locations/{location_id}/areas/visitors", token,
-                start=start.isoformat(), end=ende.isoformat(),
+                start=(start - timedelta(days=1)).isoformat(),
+                end=(ende + timedelta(days=1)).isoformat(),
                 step="hour", format="csv",
             )
             text = pruefe_csv(daten, f"Stundenwerten {jahr}-{monat:02d}")
-            datei.write_text(text)
-            print(f"  {text.count(chr(10))} Zeilen geschrieben.")
+            zeilen = [z for z in text.splitlines()[1:]
+                      if start.isoformat() <= z.split(";")[3][:10] <= ende.isoformat()]
+            datei.write_text(CSV_HEADER + "\n" + "\n".join(zeilen) + "\n")
+            print(f"  {len(zeilen)} Datenzeilen geschrieben.")
         jahr, monat = (jahr + 1, 1) if monat == 12 else (jahr, monat + 1)
 
 
