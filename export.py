@@ -33,10 +33,18 @@ from pathlib import Path
 BASE_URL = "https://api.ariadne.inc/api/v2"
 MESSBEGINN = date(2024, 7, 28)
 PROJEKT_DIR = Path(__file__).resolve().parent
-DATA_DIR = PROJEKT_DIR / "data"
+DATA_DIR = Path(os.environ.get("DATA_DIR", PROJEKT_DIR / "data"))
 STUNDEN_DIR = DATA_DIR / "stundenwerte"
 CSV_HEADER = "location;ID;area;date;visitors"
 RETRIES = 4
+
+
+def schreibe_atomar(datei: Path, inhalt: str) -> None:
+    """Schreibt über eine Temporärdatei + rename, damit parallele Lesezugriffe
+    (z. B. Downloads der Web-App) nie eine halb geschriebene Datei sehen."""
+    tmp = datei.with_suffix(datei.suffix + ".tmp")
+    tmp.write_text(inhalt)
+    tmp.replace(datei)
 
 
 def lade_config() -> dict:
@@ -115,9 +123,8 @@ def export_stationen(token: str, location_id: str) -> None:
     for ebene in parents.get("geometry", []):
         features.extend(ebene.get("geometry", {}).get("features", []))
     geojson = {"type": "FeatureCollection", "features": features}
-    (DATA_DIR / "erfassungsbereiche.geojson").write_text(
-        json.dumps(geojson, ensure_ascii=False, indent=1)
-    )
+    schreibe_atomar(DATA_DIR / "erfassungsbereiche.geojson",
+                    json.dumps(geojson, ensure_ascii=False, indent=1))
 
     with open(DATA_DIR / "stationen.csv", "w", newline="") as f:
         w = csv.writer(f, delimiter=";")
@@ -204,7 +211,7 @@ def export_tageswerte(token: str, location_id: str, bis: date) -> None:
             print(f"Exportiere Tageswerte {jahr}-{monat:02d} ({start} bis {ende}) …")
             zeilen = hole_werte(token, location_id, start, ende, "day",
                                 f"Tageswerte {jahr}-{monat:02d}")
-            datei.write_text(CSV_HEADER + "\n" + "\n".join(zeilen) + "\n")
+            schreibe_atomar(datei, CSV_HEADER + "\n" + "\n".join(zeilen) + "\n")
         teile.append(datei)
         jahr, monat = (jahr + 1, 1) if monat == 12 else (jahr, monat + 1)
 
@@ -239,7 +246,7 @@ def export_stundenwerte(token: str, location_id: str, bis: date) -> None:
             print(f"Exportiere Stundenwerte {jahr}-{monat:02d} ({start} bis {ende}) …")
             zeilen = hole_werte_chunked(token, location_id, start, ende, "hour",
                                         f"Stundenwerte {jahr}-{monat:02d}")
-            datei.write_text(CSV_HEADER + "\n" + "\n".join(zeilen) + "\n")
+            schreibe_atomar(datei, CSV_HEADER + "\n" + "\n".join(zeilen) + "\n")
             print(f"  {len(zeilen)} Datenzeilen geschrieben.")
         jahr, monat = (jahr + 1, 1) if monat == 12 else (jahr, monat + 1)
 
@@ -306,7 +313,7 @@ def erzeuge_qualitaetsbericht(bis: date) -> None:
     for area in sorted(von, key=lambda a: (von[a], bis_map[a], a)):
         if von[area] != MESSBEGINN.isoformat() or bis_map[area] != bis.isoformat():
             zeilen.append(f"| {area} | {von[area]} | {bis_map[area]} |")
-    (DATA_DIR / "datenqualitaet.md").write_text("\n".join(zeilen) + "\n")
+    schreibe_atomar(DATA_DIR / "datenqualitaet.md", "\n".join(zeilen) + "\n")
 
 
 def main() -> None:

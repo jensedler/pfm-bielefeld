@@ -1,0 +1,9 @@
+.git
+.gitignore
+.env
+Input/
+data/
+PLAN.md
+__pycache__/
+*.pyc
+.DS_Store

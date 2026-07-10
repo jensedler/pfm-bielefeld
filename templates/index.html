@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block inhalt %}
+
+<section class="status" aria-label="Aktualität der Daten">
+  {% if state.datenstand %}
+    <p>
+      <strong>Datenstand: {{ state.datenstand | replace("-", ".") }}</strong>
+      {% if state.fehler %}
+        <span class="badge fehler">⚠ letzter Abruf fehlgeschlagen</span>
+      {% elif state.letzter_erfolg %}
+        <span class="badge ok">✓ letzter Abruf {{ state.letzter_erfolg[:10] }}</span>
+      {% endif %}
+    </p>
+  {% else %}
+    <p><strong>Die Daten werden gerade erstmalig aus dem Messsystem geladen.</strong>
+       Der vollständige Abruf dauert einige Minuten — bitte später erneut laden.</p>
+  {% endif %}
+</section>
+
+{% if chart %}
+<section aria-label="Verlauf">
+  <h2>Erfasste Endgeräte pro Tag — Summe aller Bereiche, letzte 30 Tage</h2>
+  <figure class="chart" id="chart">
+    <svg viewBox="0 0 {{ chart.breite }} {{ chart.hoehe }}" role="img"
+         aria-label="Liniendiagramm der Passantenfrequenz der letzten 30 Tage">
+      {% for t in chart.y_ticks %}
+      <line class="grid" x1="{{ chart.plot.x }}" x2="{{ chart.plot.x + chart.plot.b }}"
+            y1="{{ t.y }}" y2="{{ t.y }}"/>
+      <text class="tick" x="{{ chart.plot.x - 6 }}" y="{{ t.y + 3 }}" text-anchor="end">{{ t.wert }}</text>
+      {% endfor %}
+      {% for p in chart.x_ticks %}
+      <text class="tick" x="{{ p.x }}" y="{{ chart.hoehe - 8 }}" text-anchor="middle">{{ p.kurz }}</text>
+      {% endfor %}
+      <path class="serie" d="{{ chart.pfad }}" fill="none"/>
+      {% set letzter = chart.punkte[-1] %}
+      <circle class="punkt-fix" cx="{{ letzter.x }}" cy="{{ letzter.y }}" r="3.5"/>
+      <text class="direktlabel" x="{{ letzter.x - 6 }}" y="{{ letzter.y - 9 }}"
+            text-anchor="end">{{ "{:,}".format(letzter.wert).replace(",", ".") }}</text>
+      <line class="kreuz" id="kreuz" y1="{{ chart.plot.y }}"
+            y2="{{ chart.plot.y + chart.plot.h }}" x1="0" x2="0" hidden/>
+      <circle class="punkt-hover" id="hoverpunkt" r="4" hidden/>
+      <rect id="hitflaeche" x="{{ chart.plot.x }}" y="{{ chart.plot.y }}"
+            width="{{ chart.plot.b }}" height="{{ chart.plot.h }}" fill="transparent"/>
+    </svg>
+    <div class="tooltip" id="tooltip" hidden></div>
+  </figure>
+  <details>
+    <summary>Werte als Tabelle anzeigen</summary>
+    <table>
+      <thead><tr><th scope="col">Datum</th><th scope="col" class="zahl">Erfasste Endgeräte</th></tr></thead>
+      <tbody>
+      {% for p in chart.punkte | reverse %}
+        <tr><td>{{ p.datum }}</td><td class="zahl">{{ "{:,}".format(p.wert).replace(",", ".") }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  <script>
+    const punkte = {{ chart.punkte | tojson }};
+    const svg = document.querySelector("#chart svg");
+    const hit = document.getElementById("hitflaeche");
+    const kreuz = document.getElementById("kreuz");
+    const hp = document.getElementById("hoverpunkt");
+    const tip = document.getElementById("tooltip");
+    hit.addEventListener("pointermove", (e) => {
+      const r = svg.getBoundingClientRect();
+      const faktor = {{ chart.breite }} / r.width;
+      const x = (e.clientX - r.left) * faktor;
+      let naechster = punkte[0];
+      for (const p of punkte) if (Math.abs(p.x - x) < Math.abs(naechster.x - x)) naechster = p;
+      kreuz.setAttribute("x1", naechster.x); kreuz.setAttribute("x2", naechster.x);
+      hp.setAttribute("cx", naechster.x); hp.setAttribute("cy", naechster.y);
+      // SVG-Elemente haben keine hidden-Property, daher Attribut direkt schalten
+      for (const el of [kreuz, hp, tip]) el.removeAttribute("hidden");
+      tip.textContent = `${naechster.datum}: ${naechster.wert.toLocaleString("de-DE")}`;
+      const links = (naechster.x / faktor) + r.left - document.getElementById("chart").getBoundingClientRect().left;
+      tip.style.left = Math.min(Math.max(links, 60), r.width - 60) + "px";
+      tip.style.top = ((naechster.y / faktor) - 34) + "px";
+    });
+    hit.addEventListener("pointerleave", () => {
+      for (const el of [kreuz, hp, tip]) el.setAttribute("hidden", "");
+    });
+  </script>
+</section>
+{% endif %}
+
+<section aria-label="Downloads">
+  <h2>Downloads</h2>
+  <table class="downloads">
+    <thead><tr><th scope="col">Datei</th><th scope="col">Inhalt</th><th scope="col" class="zahl">Größe</th></tr></thead>
+    <tbody>
+    {% for d in dateien %}
+      <tr>
+        <td><a href="{{ url_for('download', name=d.pfad) }}">{{ d.titel }}</a></td>
+        <td>{{ d.beschreibung }}</td>
+        <td class="zahl">{{ d.groesse }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {% if monate %}
+  <details>
+    <summary>Stundenwerte pro Monat ({{ monate | length }} Dateien, CSV)</summary>
+    <ul class="monatsliste">
+      {% for m in monate %}
+      <li><a href="{{ url_for('download', name=m.pfad) }}">{{ m.titel }}</a> <span class="dezent">({{ m.groesse }})</span></li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</section>
+
+{% if beschreibung %}
+<section class="beschreibung" aria-label="Datensatzbeschreibung">
+  {{ beschreibung | safe }}
+</section>
+{% endif %}
+
+{% endblock %}
