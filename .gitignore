@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Zugangsdaten & sensible Inputs (Credentials, IFG-Anfrage mit personenbezogenen Daten)
+Input/
+.env
+.env.*
+*.credentials
+secrets*
+
+# Abgerufene Rohdaten / Exporte (werden reproduzierbar über die API bezogen)
+data/
+exports/
+*.sqlite
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.idea/
+.vscode/
