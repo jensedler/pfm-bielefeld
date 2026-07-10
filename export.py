@@ -251,6 +251,32 @@ def erzeuge_qualitaetsbericht(bis: date) -> None:
             f"| {vorhanden} | {erwartet} | {erwartet - vorhanden} "
             f"| {len(systemweit_fehlend)}{': ' + beispiel if beispiel else ''} |"
         )
+
+    # Abdeckungszeiträume: nicht alle Erfassungsbereiche existieren durchgehend
+    # (Umbenennungen/Umkonfigurationen; im September 2024 lieferte parallel ein
+    # zweiter Satz von Bereichen mit generischen Namen Daten).
+    von: dict[str, str] = {}
+    bis_map: dict[str, str] = {}
+    with open(DATA_DIR / "tageswerte.csv") as f:
+        reader = csv.reader(f, delimiter=";")
+        next(reader, None)
+        for zeile in reader:
+            area, tag = zeile[2], zeile[3][:10]
+            von.setdefault(area, tag)
+            bis_map[area] = tag
+    zeilen += [
+        "",
+        "## Abdeckungszeiträume der Erfassungsbereiche",
+        "",
+        "Erfassungsbereiche wurden im Betrieb gelegentlich umbenannt, ergänzt"
+        " oder entfernt. Bereiche, die nicht den kompletten Zeitraum abdecken:",
+        "",
+        "| Erfassungsbereich | erster Tag | letzter Tag |",
+        "|---|---|---|",
+    ]
+    for area in sorted(von, key=lambda a: (von[a], bis_map[a], a)):
+        if von[area] != MESSBEGINN.isoformat() or bis_map[area] != bis.isoformat():
+            zeilen.append(f"| {area} | {von[area]} | {bis_map[area]} |")
     (DATA_DIR / "datenqualitaet.md").write_text("\n".join(zeilen) + "\n")
 
 
