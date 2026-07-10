@@ -3,20 +3,37 @@
 Die App erfüllt die ONCE-Anforderungen: Docker-Image, HTTP auf Port 80,
 Healthcheck unter `/up`, persistente Daten unter `/storage`.
 
-## Image bauen und veröffentlichen
+## Image veröffentlichen (GHCR, automatisch)
 
-Lokal wird auf Apple Silicon (arm64) entwickelt, der Zielserver ist x86_64 —
-daher immer multi-arch bauen:
+Der GitHub-Actions-Workflow (`.github/workflows/docker-publish.yml`) baut das
+Image multi-arch (amd64 + arm64 — Zielserver ist x86_64, entwickelt wird auf
+Apple Silicon) und veröffentlicht es auf der GitHub Container Registry,
+sobald ein Tag der Form `v*` gepusht wird:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Das Image liegt danach unter `ghcr.io/jensedler/pfm-bielefeld:latest`
+(bzw. `:<version>`). Pre-Release-Tags mit Bindestrich (z. B. `v0.2.0-rc.1`)
+erzeugen stattdessen das `:staging`-Tag und setzen kein `latest`.
+
+**Einmalig nach dem ersten Release:** Das GHCR-Package auf GitHub unter
+*Package settings → Change visibility* auf **public** stellen, damit der
+ONCE-Server das Image ohne Anmeldung ziehen kann.
+
+Manueller Build ohne Actions:
 
 ```sh
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t <registry>/datenexport-ariadne:latest --push .
+  -t ghcr.io/jensedler/pfm-bielefeld:latest --push .
 ```
 
 ## In ONCE installieren
 
 1. Auf dem Server `once` starten, neue App anlegen, als Image
-   `<registry>/datenexport-ariadne:latest` und die gewünschte Domain angeben
+   `ghcr.io/jensedler/pfm-bielefeld:latest` und die gewünschte Domain angeben
    (DNS-A-Record muss auf den Server zeigen).
 2. In den App-Einstellungen (`s`) die Umgebungsvariablen setzen:
 
