@@ -11,7 +11,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY export.py scheduler.py app.py wsgi.py entrypoint.sh DATENSATZBESCHREIBUNG.md ./
+COPY export.py scheduler.py app.py wsgi.py entrypoint.sh \
+     DATENSATZBESCHREIBUNG.md impressum.md datenschutz.md ./
 COPY templates/ templates/
 COPY static/ static/
 

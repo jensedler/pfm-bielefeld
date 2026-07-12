@@ -17,8 +17,11 @@
     {% block inhalt %}{% endblock %}
   </main>
   <footer class="fuss inhalt">
-    <p>Bereitgestellt von Stadt Bielefeld / WEGE mbH anlässlich einer Anfrage nach dem
-       Informationsfreiheitsgesetz NRW. <a href="{{ url_for('datenqualitaet') }}">Datenqualitätsbericht</a></p>
+    <p>Messdaten der Stadt Bielefeld / WEGE mbH, veröffentlicht anlässlich einer Anfrage
+       nach dem Informationsfreiheitsgesetz NRW.</p>
+    <p><a href="{{ url_for('datenqualitaet') }}">Datenqualitätsbericht</a> ·
+       <a href="{{ url_for('impressum') }}">Impressum</a> ·
+       <a href="{{ url_for('datenschutz') }}">Datenschutzerklärung</a></p>
   </footer>
 </body>
 </html>

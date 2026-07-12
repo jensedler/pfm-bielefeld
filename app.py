@@ -157,6 +157,18 @@ def datenqualitaet():
                            inhalt=render_markdown(pfad))
 
 
+@app.get("/impressum")
+def impressum():
+    return render_template("markdown.html", titel="Impressum",
+                           inhalt=render_markdown(PROJEKT_DIR / "impressum.md"))
+
+
+@app.get("/datenschutz")
+def datenschutz():
+    return render_template("markdown.html", titel="Datenschutzerklärung",
+                           inhalt=render_markdown(PROJEKT_DIR / "datenschutz.md"))
+
+
 @app.get("/download/<path:name>")
 def download(name: str):
     if not DOWNLOAD_MUSTER.match(name):

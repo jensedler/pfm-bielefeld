@@ -18,8 +18,11 @@ offene Punkte: `PLAN.md`.
 - `scheduler.py` — eigener Prozess neben Gunicorn (siehe `entrypoint.sh`);
   Backfill beim Erststart, danach täglich 05:30 Uhr; baut nach jedem Lauf
   `komplett.zip`. `--einmal` für Einzellauf.
-- `app.py` — Flask, eine Download-Seite + `/datenqualitaet` + `/up` + Downloads
-  über Allowlist-Regex. Diagramm ist server-gerendertes Inline-SVG.
+- `app.py` — Flask, eine Download-Seite + `/datenqualitaet` + `/impressum` +
+  `/datenschutz` + `/up` + Downloads über Allowlist-Regex. Diagramm ist
+  server-gerendertes Inline-SVG. Keine Web-Fonts (Systemschriften) — die
+  Datenschutzerklärung sichert das zu; bei Font-Einbau dort nachziehen
+  (lokal hosten + Lizenz nennen, Vorgabe von Jens).
 - Deployment: ONCE-kompatibel (Port 80, `/up`, `/storage`), Release über
   `v*`-Tag → GitHub Actions → `ghcr.io/jensedler/pfm-bielefeld`. Details: `DEPLOY.md`.
 
