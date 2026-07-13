@@ -35,7 +35,7 @@ python3 export.py                    # Daten nach ./data abrufen
 
 Wichtige Dateien: `export.py` (API-Abruf inkl. Workarounds für
 API-Eigenheiten), `scheduler.py` (täglicher Lauf), `app.py` (Web-App).
-Kontext für KI-Agents: `CLAUDE.md`. Projektstand: `PLAN.md`.
+Kontext für KI-Agents: `CLAUDE.md`.
 
 ## Lizenz
 

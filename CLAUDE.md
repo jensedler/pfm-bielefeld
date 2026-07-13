@@ -6,7 +6,7 @@ Beantwortung der IFG-Anfrage #369610 (fragdenstaat.de) zu Passantenfrequenzdaten
 der Bielefelder Innenstadt (Messsystem: Ariadne Maps, Smartphone-Tracking per
 Multilateration in ~40 Erfassungspolygonen). Die App ruft täglich die
 Ariadne-API ab und stellt CSV/GeoJSON-Downloads bereit. Aufgabenstand und
-offene Punkte: `PLAN.md`.
+offene Punkte: `PLAN.md` (nur lokal, gitignored — liegt nicht im Repo).
 
 ## Architektur (bewusst minimal)
 

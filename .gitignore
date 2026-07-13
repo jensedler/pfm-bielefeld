@@ -9,6 +9,9 @@ Input/
 *.credentials
 secrets*
 
+# Interne Arbeitsnotizen (nur lokal, nicht auf GitHub)
+PLAN.md
+
 # Abgerufene Rohdaten / Exporte (werden reproduzierbar über die API bezogen)
 data/
 exports/
